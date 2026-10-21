@@ -2,6 +2,7 @@
 # Pipeline 1: Build e Test
 # ─────────────────────────────────────────────────────────────
 name: Builds and Tests
+
 on:
   push:
     branches: [main]
@@ -9,7 +10,7 @@ on:
     branches: [main]
 
 jobs:
-# ── JOB 1: Testes ──────────────────────────────────────────
+  # ── JOB 1: Testes ──────────────────────────────────────────
   Build:
     name: Compilar Projeto
     runs-on: ubuntu-latest
@@ -20,41 +21,44 @@ jobs:
 
       - name: Configurar Python
         uses: actions/setup-python@v5
-
         with:
           python-version: 3.11
 
       - name: Instalar dependências
-
         run: |
           pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest httpx # deps de teste
+          pip install pytest httpx
 
       - name: Executar testes com pytest
         run: |
           PYTHONPATH=. pytest tests/ -v --tb=short
 
+  # ── JOB 2: Build e Push Docker ─────────────────────────────
   Imagem:
     name: Construindo Imagem para Docker
     runs-on: ubuntu-latest
     needs: Build
+
     steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
       - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-    # Lembre-se de ajusta com o ID da sua conta no dockerhub
+
       - name: Build e Push Docker
         uses: docker/build-push-action@v7
         with:
           push: true
           tags: |
-            ngaloni/senai_fastapi:latest
-            ngaloni/senai_fastapi:${{ github.sha }}    
+            ${{ secrets.DOCKERHUB_USERNAME }}/senai_fastapi:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/senai_fastapi:${{ github.sha }}
 
       - name: Resumo do deploy
         run: |
-         echo "## ✅ Imagem publicada no Docker Hub" >> $GITHUB_STEP_SUMMARY
-         echo "Tags: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Imagem publicada no Docker Hub" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
